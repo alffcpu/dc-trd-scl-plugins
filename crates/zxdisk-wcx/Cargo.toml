@@ -1,0 +1,23 @@
+[package]
+name = "zxdisk-wcx"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+description = "Double Commander WCX packer plugin for ZX Spectrum .trd/.scl disk images"
+
+[lib]
+# The plugin is a C-ABI dynamic library. Double Commander loads it as a .wcx
+# (a renamed .dylib on macOS, .so on Linux, .dll on Windows). The extra "rlib"
+# lets the integration tests link the crate and call the exported functions.
+name = "zxdisk_wcx"
+crate-type = ["cdylib", "rlib"]
+
+[dependencies]
+zxdisk-core = { path = "../zxdisk-core" }
+
+# Windows only: convert paths/names between the system ANSI code page (what
+# Double Commander's non-Unicode WCX API hands us) and UTF-8.
+[target.'cfg(windows)'.dependencies.windows-sys]
+version = "0.59"
+features = ["Win32_Globalization"]

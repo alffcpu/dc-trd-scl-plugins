@@ -1,0 +1,9 @@
+[package]
+name = "zxdisk-core"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+description = "Reader/writer for ZX Spectrum TR-DOS (.trd) and Sinclair (.scl) disk images"
+
+[dependencies]

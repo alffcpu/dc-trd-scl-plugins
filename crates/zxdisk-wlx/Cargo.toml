@@ -1,0 +1,38 @@
+[package]
+name = "zxdisk-wlx"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+description = "Double Commander WLX lister plugin: view ZX Spectrum screens (.scr 6912/6144)"
+
+[lib]
+# The plugin is a C-ABI dynamic library loaded by Double Commander as a .wlx
+# (renamed .dll on Windows, .so on Linux, .dylib on macOS).
+name = "zxdisk_wlx"
+crate-type = ["cdylib"]
+
+[dependencies]
+zxdisk-core = { path = "../zxdisk-core" }
+
+# The Windows shell (native window + GDI blit).
+[target.'cfg(windows)'.dependencies.windows-sys]
+version = "0.59"
+features = [
+    "Win32_Foundation",
+    "Win32_Globalization",
+    "Win32_Graphics_Gdi",
+    "Win32_System_LibraryLoader",
+    "Win32_UI_Input_KeyboardAndMouse",
+    "Win32_UI_WindowsAndMessaging",
+]
+
+# The macOS shell (native NSView + Cocoa blit) over the same shared renderer.
+# objc2 links AppKit/Foundation itself (framework link attrs), so no build.rs.
+# "catch-all" turns any ObjC exception raised inside a message send into a Rust
+# panic, so our `guard` (catch_unwind) swallows it instead of it aborting Double
+# Commander across the non-unwinding `extern "system"` boundary.
+[target.'cfg(target_os = "macos")'.dependencies]
+objc2 = { version = "0.6", features = ["catch-all"] }
+objc2-foundation = "0.3"
+objc2-app-kit = "0.3"

@@ -1,0 +1,24 @@
+[workspace]
+resolver = "2"
+members = [
+    "crates/zxdisk-core",
+    "crates/zxdisk-wcx",
+    "crates/zxdisk-wlx",
+    "crates/zxdisk-cli",
+]
+
+[workspace.package]
+version = "1.0.0"
+edition = "2021"
+license = "MIT"
+authors = ["drwho/thesuper"]
+repository = "https://github.com/alffcpu/dc-trd-scl-plugins"
+
+# Shipping profile for the .wcx dynamic library: small, self-contained, no panic
+# unwinding leaking across the C ABI (each exported function additionally guards
+# itself with catch_unwind).
+[profile.release]
+opt-level = "z"
+lto = true
+codegen-units = 1
+strip = true

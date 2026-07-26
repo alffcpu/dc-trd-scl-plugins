@@ -1,0 +1,5 @@
+# Keep line endings correct regardless of a cloner's core.autocrlf:
+# POSIX shell and Lua must stay LF (bash/Lua break on CR), Windows batch CRLF.
+*.sh   text eol=lf
+*.lua  text eol=lf
+*.cmd  text eol=crlf
