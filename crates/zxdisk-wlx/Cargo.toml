@@ -2,6 +2,9 @@
 name = "zxdisk-wlx"
 version.workspace = true
 edition.workspace = true
+# Not a library anyone should pull from crates.io: two of these are dynamic
+# libraries a file manager loads by path, and the third is their companion tool.
+publish = false
 license.workspace = true
 authors.workspace = true
 description = "Double Commander WLX lister plugin: view ZX Spectrum screens (.scr 6912/6144)"

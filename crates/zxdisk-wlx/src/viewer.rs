@@ -29,11 +29,24 @@ pub unsafe extern "system" fn ListGetDetectString(detect_string: *mut c_char, ma
         return;
     }
     // Always leave room for (and write) the NUL terminator, even for a 1-byte buf.
+    //
+    // SAFETY: the doc comment above is the contract - `detect_string` is
+    // writable for `maxlen` bytes - and the null and non-positive cases are
+    // refused before here. `cap` is maxlen - 1, so `n <= maxlen - 1` and the
+    // terminator at `n` is the last byte that can be touched: nothing is written
+    // at or past `maxlen`. viewer/tests.rs checks that for every length from 1
+    // upward, with a sentinel past the end.
     let cap = (maxlen as usize) - 1;
     let n = DETECT.len().min(cap);
     core::ptr::copy_nonoverlapping(DETECT.as_ptr() as *const c_char, detect_string, n);
     *detect_string.add(n) = 0;
 }
+
+// The detect string is the one export every build has, and it writes through a
+// raw pointer into a buffer the host sized. Its tests are in viewer/tests.rs -
+// a file of their own, like the rest, so the coverage report can leave them out.
+#[cfg(test)]
+mod tests;
 
 // The view-model and settings are only needed where there is a native window to
 // drive (Windows / macOS / Linux-Qt). Gating them keeps any other build - which

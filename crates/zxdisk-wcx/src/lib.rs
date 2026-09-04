@@ -14,6 +14,11 @@
 // points called by Double Commander exactly as the WCX SDK specifies (valid
 // NUL-terminated strings, handles previously returned by OpenArchive) - so a
 // per-function `# Safety` section would repeat that eleven times.
+//
+// That contract covers the shape of the arguments and nothing else. Where a
+// site relies on something the SDK does not promise - the lifetime of a handle,
+// how far a pointer may be walked - there is a SAFETY comment at the site
+// saying which invariant is being leaned on and who holds it up.
 #![allow(clippy::missing_safety_doc)]
 
 pub mod wcx;
@@ -440,6 +445,9 @@ struct ArcState {
 // small helpers
 // ---------------------------------------------------------------------------
 
+/// # Safety
+/// `p` is either null or a NUL-terminated C string that stays valid for this
+/// call. Double Commander owns the buffer; nothing here keeps the pointer.
 unsafe fn cstr_to_string(p: *const c_char) -> String {
     if p.is_null() {
         String::new()
@@ -448,6 +456,8 @@ unsafe fn cstr_to_string(p: *const c_char) -> String {
     }
 }
 
+/// # Safety
+/// As [`cstr_to_string`]: null, or a NUL-terminated string valid for the call.
 unsafe fn cstr_opt(p: *const c_char) -> Option<String> {
     if p.is_null() {
         None
@@ -470,6 +480,13 @@ fn write_carray<const N: usize>(buf: &mut [c_char; N], s: &str) {
 }
 
 /// Parse a double-NUL-terminated list of C strings (the WCX AddList/DeleteList).
+/// # Safety
+/// `p` is null, or points at a double-NUL-terminated list: a run of
+/// NUL-terminated strings ended by an empty one. This walks forward by the
+/// length of each string it reads, so the terminating empty string is what
+/// stops it - a list without one would be read past its end. That final NUL is
+/// the WCX SDK's own guarantee for AddList and DeleteList, and it is the whole
+/// invariant this function rests on.
 unsafe fn parse_double_null(mut p: *const c_char) -> Vec<String> {
     let mut out = Vec::new();
     if p.is_null() {
@@ -589,6 +606,10 @@ pub unsafe extern "system" fn OpenArchive(data: *mut tOpenArchiveData) -> HANDLE
         let path = cstr_to_string(d.ArcName);
         debug_log(&format!("OpenArchive mode={} path={path:?}", d.OpenMode));
         match load_state(&path) {
+            // SAFETY: the handle Double Commander gets back is a Box leaked on
+            // purpose. It stays alive until CloseArchive turns it back into a
+            // Box and drops it, and nothing else frees it in between - which is
+            // what makes the &mut *(h as *mut ArcState) in the readers sound.
             Ok(state) => Box::into_raw(Box::new(state)) as HANDLE,
             Err(code) => {
                 debug_log(&format!("OpenArchive failed rc={code}"));
@@ -605,6 +626,9 @@ pub unsafe extern "system" fn ReadHeaderEx(h: HANDLE, hdr: *mut tHeaderDataEx) -
         if h.is_null() || hdr.is_null() {
             return E_BAD_ARCHIVE;
         }
+        // SAFETY: `h` is a handle from OpenArchive, still open - the null case
+        // is refused above. Nothing else holds a reference to it: the SDK drives
+        // one archive from one thread at a time.
         let st = &mut *(h as *mut ArcState);
         if st.index >= st.entries.len() {
             return E_END_ARCHIVE;
@@ -641,6 +665,9 @@ pub unsafe extern "system" fn ReadHeader(h: HANDLE, hdr: *mut tHeaderData) -> c_
         if h.is_null() || hdr.is_null() {
             return E_BAD_ARCHIVE;
         }
+        // SAFETY: `h` is a handle from OpenArchive, still open - the null case
+        // is refused above. Nothing else holds a reference to it: the SDK drives
+        // one archive from one thread at a time.
         let st = &mut *(h as *mut ArcState);
         if st.index >= st.entries.len() {
             return E_END_ARCHIVE;
@@ -679,6 +706,9 @@ pub unsafe extern "system" fn ProcessFile(
         if h.is_null() {
             return E_BAD_ARCHIVE;
         }
+        // SAFETY: `h` is a handle from OpenArchive, still open - the null case
+        // is refused above. Nothing else holds a reference to it: the SDK drives
+        // one archive from one thread at a time.
         let st = &mut *(h as *mut ArcState);
         let idx = st.current;
         let result = if operation == PK_EXTRACT {
@@ -708,6 +738,11 @@ pub unsafe extern "system" fn ProcessFile(
 pub unsafe extern "system" fn CloseArchive(h: HANDLE) -> c_int {
     guard!(E_SUCCESS, {
         if !h.is_null() {
+            // SAFETY: `h` came from Box::into_raw in OpenArchive and has not
+            // been closed before - the SDK calls this exactly once per handle.
+            // A second call would be a double free, which is the one thing this
+            // function cannot defend itself against and the reason the contract
+            // is written down.
             drop(Box::from_raw(h as *mut ArcState));
         }
         E_SUCCESS

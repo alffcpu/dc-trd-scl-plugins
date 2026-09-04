@@ -52,6 +52,10 @@ impl Drop for Fixture {
     }
 }
 
+/// The environment belongs to the process, not to a test, and cargo runs tests
+/// in parallel threads. Anything that moves HOME holds this while it does.
+static CONF_LOCK: std::sync::Mutex<()> = std::sync::Mutex::new(());
+
 fn args(v: &[&str]) -> Vec<String> {
     v.iter().map(|s| s.to_string()).collect()
 }
@@ -276,8 +280,17 @@ fn add_refuses_what_it_cannot_do() {
     let fx = Fixture::new("add-bad");
     let img = fx.image();
     assert!(cmd_add(&[]).unwrap_err().contains("expected"));
+
+    // A source that is not there has to name it, or the user cannot tell a
+    // typo from a permissions problem. "non-empty" was what this asked before,
+    // which any message satisfies.
     let e = cmd_add(&args(&[img.to_str().unwrap(), "/no/such/host/file"])).unwrap_err();
-    assert!(!e.is_empty(), "an unreadable source has to say something");
+    assert!(e.contains("/no/such/host/file"), "{e}");
+
+    // And an image that is not an image is refused before the host file is
+    // even read.
+    let e = cmd_add(&args(&["/no/such/image.trd", "/no/such/host/file"])).unwrap_err();
+    assert!(!e.is_empty(), "{e}");
 }
 
 // ---- the shared settings file -------------------------------------------
@@ -314,10 +327,53 @@ fn read_ini_key_reads_the_shape_the_plugins_write() {
 
 #[test]
 fn shared_conf_paths_are_ordered_and_expand() {
-    // HOME first, which is what a Unix host and Git Bash both set.
-    let paths = shared_conf_paths();
-    assert!(!paths.is_empty(), "no candidate config path at all");
-    assert!(paths
+    // The order is the precedence, and it has to be HOME first: that is what a
+    // Unix host and Git Bash both set, and it is what the WCX plugin looks at
+    // first too. The two disagreeing is how the rename hotkey ends up renaming
+    // something the listing does not show.
+    //
+    // The first version of this checked neither the order nor the expansion,
+    // only that every path contained "zxdisk.conf" - which the function could
+    // not have got wrong.
+    let _lock = CONF_LOCK.lock().unwrap_or_else(|e| e.into_inner());
+    let saved: Vec<_> = ["HOME", "USERPROFILE", "APPDATA"]
         .iter()
-        .all(|p| p.to_string_lossy().contains("zxdisk.conf")));
+        .map(|k| (*k, std::env::var_os(k)))
+        .collect();
+    for (k, _) in &saved {
+        std::env::set_var(k, format!("/tmp/probe-{k}"));
+    }
+
+    let paths: Vec<String> = shared_conf_paths()
+        .iter()
+        .map(|p| p.to_string_lossy().into_owned())
+        .collect();
+
+    for (k, old) in &saved {
+        match old {
+            Some(v) => std::env::set_var(k, v),
+            None => std::env::remove_var(k),
+        }
+    }
+
+    assert!(!paths.is_empty(), "no candidate config path at all");
+    // The variable was expanded, not left as a literal.
+    assert!(paths[0].starts_with("/tmp/probe-HOME/"), "{paths:?}");
+    assert!(paths[0].ends_with(".config/zxdisk.conf"), "{paths:?}");
+    // And every candidate names the shared file.
+    assert!(
+        paths.iter().all(|p| p.ends_with("zxdisk.conf")),
+        "{paths:?}"
+    );
+    // No duplicates: reading the same file twice is wasted work and hides a
+    // copy-paste in the fallback list.
+    let mut sorted = paths.clone();
+    sorted.sort();
+    let before = sorted.len();
+    sorted.dedup();
+    assert_eq!(
+        sorted.len(),
+        before,
+        "a candidate path is listed twice: {paths:?}"
+    );
 }

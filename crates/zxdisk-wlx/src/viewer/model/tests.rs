@@ -371,3 +371,42 @@ fn zoom_and_border_survive_the_viewer_being_closed() {
     assert!(matches!(super::read_border(), BorderMode::Fixed(2)));
     assert!(conf.text().contains("screen_scale=4"), "{}", conf.text());
 }
+
+// ---- what Double Commander opens, and what it refuses to ------------------
+//
+// build_state decides whether this plugin claims a file at all. It says yes to
+// a 6912 or 6144 byte screen and no to everything else, and "no" has to be a
+// None rather than a window full of noise - DC hands the file to the next
+// lister when we decline.
+
+#[test]
+fn a_screen_is_opened_and_anything_else_is_declined() {
+    let conf = Conf::new("build");
+
+    // 6912: bitmap plus attributes, a colour screen.
+    let colour = conf.dir.join("colour.scr");
+    std::fs::write(&colour, vec![0x5Au8; 6912]).unwrap();
+    let st = super::build_state(&colour).expect("6912 bytes is a screen");
+    assert!(!st.is_mono, "6912 bytes carries attributes");
+
+    // 6144: bitmap only, so mono.
+    let mono = conf.dir.join("mono.scr");
+    std::fs::write(&mono, vec![0x5Au8; 6144]).unwrap();
+    let st = super::build_state(&mono).expect("6144 bytes is a screen");
+    assert!(st.is_mono, "6144 bytes has no attributes");
+
+    // A byte too many or too few is not a screen. The detection is by size
+    // alone - a ZX screen has no signature - so the boundaries are the whole
+    // of it.
+    for size in [0usize, 1, 6143, 6145, 6911, 6913, 16384] {
+        let other = conf.dir.join(format!("other-{size}.bin"));
+        std::fs::write(&other, vec![0u8; size]).unwrap();
+        assert!(
+            super::build_state(&other).is_none(),
+            "{size} bytes was taken for a screen"
+        );
+    }
+
+    // A path that is not there is declined rather than a panic across the FFI.
+    assert!(super::build_state(&conf.dir.join("absent.scr")).is_none());
+}

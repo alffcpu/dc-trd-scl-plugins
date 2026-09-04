@@ -2,6 +2,9 @@
 name = "zxdisk-cli"
 version.workspace = true
 edition.workspace = true
+# Not a library anyone should pull from crates.io: two of these are dynamic
+# libraries a file manager loads by path, and the third is their companion tool.
+publish = false
 license.workspace = true
 authors.workspace = true
 description = "Command-line tool to manipulate ZX Spectrum .trd/.scl images (list, rename, delete, extract, add)"

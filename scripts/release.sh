@@ -58,6 +58,10 @@ case "$(uname -s)" in
         echo "warning: $f was not built (toolchain missing?) - not included in the package" >&2
       fi
     done
+    # The licence and what a built plugin carries that is not ours travel with
+    # every package: MIT asks for the notice to accompany the binary.
+    cp LICENSE                  "$OUT/"
+    cp THIRD_PARTY_NOTICES.md   "$OUT/"
     cp scripts/install.cmd      "$OUT/"
     cp scripts/install-core.ps1 "$OUT/"
     # No zxrename.lua here: the Windows installer generates its own (LuaJIT/FFI,
@@ -142,6 +146,10 @@ EOF
     if [ -f dist/zxdisk.wlx ]; then
       cp dist/zxdisk.wlx "$OUT/"; have_wlx=1
     fi
+    # The licence and what a built plugin carries that is not ours travel with
+    # every package: MIT asks for the notice to accompany the binary.
+    cp LICENSE                  "$OUT/"
+    cp THIRD_PARTY_NOTICES.md   "$OUT/"
     cp scripts/install.sh "$OUT/"
     cp scripts/zxrename.lua "$OUT/"
     chmod +x "$OUT/install.sh"

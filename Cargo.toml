@@ -13,10 +13,19 @@ edition = "2021"
 license = "MIT"
 authors = ["drwho/thesuper"]
 repository = "https://github.com/alffcpu/dc-trd-scl-plugins"
+# The toolchain this is built and tested against. Stated rather than left for a
+# user to discover from a compile error; CI pins the same one, so the manifest
+# and the build agree. It is a conservative floor - older compilers may well
+# work - but a promise the project actually keeps is worth more than a guess
+# nobody verifies.
+rust-version = "1.96"
 
-# Shipping profile for the .wcx dynamic library: small, self-contained, no panic
-# unwinding leaking across the C ABI (each exported function additionally guards
-# itself with catch_unwind).
+# Shipping profile for the plugin libraries: small and self-contained, which is
+# what matters for a file that Double Commander loads into its own process.
+#
+# It says nothing about panics, and used to claim it did. Nothing here stops a
+# panic unwinding across the C ABI - that is done in the code, where every
+# exported function wraps its body in catch_unwind.
 [profile.release]
 opt-level = "z"
 lto = true
