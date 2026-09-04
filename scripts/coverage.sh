@@ -87,9 +87,20 @@ done
 # The report. Test and example sources are dropped from it: a suite that reports
 # on itself flatters itself, and the examples are documentation that happens to
 # compile.
+#
+# What is NOT ours is excluded by pattern rather than by naming what is. A cold
+# build instruments the dependencies and the standard library too, and both then
+# carry coverage mappings; llvm-cov's positional source filter does not keep them
+# out. Left in, they read 13.8% instead of 76.6%.
+#
+# This only appears from a clean checkout. In a warm target/ the dependencies
+# were already compiled without instrumentation, had no mapping, and never
+# reached the report - so the number was right on the machine that wrote the
+# script and wrong on every other one.
 REPORT=$(llvm llvm-cov report "${OBJ[@]}" \
            -instr-profile="$PROF/merged.profdata" \
-           -ignore-filename-regex='(tests|examples)/|tests\.rs$|_tests\.rs$' crates 2>/dev/null)
+           -ignore-filename-regex='\.cargo/registry|/rustc/|/library/std/|(tests|examples)/|tests\.rs$|_tests\.rs$' \
+           "$PWD/crates" 2>/dev/null)
 
 # Weakest first: the point of the table is what to test next. Column 10 is the
 # line-coverage percentage; sort -n reads the number and stops at the '%'.
@@ -103,8 +114,8 @@ printf '%s\n' "$REPORT" | grep '^TOTAL'
 
 if [ "$HTML" -eq 1 ]; then
   llvm llvm-cov show "${OBJ[@]}" -instr-profile="$PROF/merged.profdata" \
-       -ignore-filename-regex='(tests|examples)/|tests\.rs$|_tests\.rs$' -format=html \
-       -output-dir=target/coverage crates >/dev/null
+       -ignore-filename-regex='\.cargo/registry|/rustc/|/library/std/|(tests|examples)/|tests\.rs$|_tests\.rs$' -format=html \
+       -output-dir=target/coverage "$PWD/crates" >/dev/null
   echo
   echo "annotated report: target/coverage/index.html"
 fi
