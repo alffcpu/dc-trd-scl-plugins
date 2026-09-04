@@ -180,6 +180,37 @@ and the on-disk format reference are covered in
 [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md) and
 [docs/FORMATS.md](docs/FORMATS.md).
 
+## Tests
+
+```sh
+cargo test --workspace          # 65 tests
+./scripts/coverage.sh           # how much of the code they reach, per file
+```
+
+The tests are where the formats are: `zxdisk-core` reads and writes TR-DOS
+catalogues, SCL archives, Hobeta headers and ZX screens, and a byte wrong in any
+of them is a corrupted disk image rather than a visible error. That crate is at
+87% to 100% of lines across its files, including a round trip - build an image,
+add files, save, reload, delete, recover - that checks the free-sector count
+against what the entries actually took.
+
+Around it: the WCX plugin's FFI boundary is driven the way Double Commander
+drives it, through the exported C functions; the CLI's commands are called the
+way `main` calls them, including every way each one refuses; and the lister
+plugin's key semantics, settings file and panic guard are checked without a
+window. That last one matters more than its size suggests - it is what stops a
+panic on a malformed screen taking the whole file manager down with it.
+
+`scripts/coverage.sh` prints a table per file, weakest first, and fails below a
+floor. It installs nothing: Rust instruments a build itself and the profile is
+read with the llvm tools the platform toolchain already carries.
+
+What it cannot see is said where the number is. `#[cfg]` decides what a host can
+compile, so the lister's Windows and Linux window code is not in a macOS build
+and not in a macOS measurement; and the native window shells are not covered on
+any host, because driving a Cocoa or Win32 window from a test needs a harness
+this project does not have.
+
 ## License
 
 [MIT](LICENSE).

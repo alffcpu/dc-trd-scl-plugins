@@ -139,7 +139,7 @@ pub mod model {
     }
 
     /// How the border is coloured.
-    #[derive(Copy, Clone)]
+    #[derive(Copy, Clone, Debug, PartialEq, Eq)]
     pub enum BorderMode {
         /// Most frequent pixel colour of the screen (the default).
         Dominant,
@@ -376,81 +376,10 @@ pub mod model {
         Some(Box::new(State::new(scr, is_mono)))
     }
 
+    // The tests are in viewer_tests.rs. They are as long as the module and are
+    // test code, which is covered by definition: counted here they would raise
+    // the coverage figure without covering anything. A file of their own is one
+    // scripts/coverage.sh can leave out of its denominator.
     #[cfg(test)]
-    mod tests {
-        use super::{digit_action, Action};
-
-        #[test]
-        fn plain_digits_select_palettes() {
-            assert!(matches!(digit_action(Some(1), false, false), Some(Action::Palette(0))));
-            assert!(matches!(digit_action(Some(7), false, false), Some(Action::Palette(6))));
-            // 0/8/9 are not palette keys
-            assert!(digit_action(Some(0), false, false).is_none());
-            assert!(digit_action(Some(8), false, false).is_none());
-            assert!(digit_action(Some(9), false, false).is_none());
-            assert!(digit_action(None, false, false).is_none());
-        }
-
-        #[test]
-        fn shift_is_zoom_1_to_6_only() {
-            assert!(matches!(digit_action(Some(1), true, false), Some(Action::Zoom(1))));
-            assert!(matches!(digit_action(Some(6), true, false), Some(Action::Zoom(6))));
-            // The reported bug: Shift+7 must NOT fall through to palette 7 (nor anything).
-            assert!(digit_action(Some(7), true, false).is_none());
-            assert!(digit_action(Some(0), true, false).is_none());
-            assert!(digit_action(Some(8), true, false).is_none());
-        }
-
-        #[test]
-        fn alt_is_border_and_wins_over_shift() {
-            assert!(matches!(digit_action(Some(0), false, true), Some(Action::BorderFixed(0))));
-            assert!(matches!(digit_action(Some(7), false, true), Some(Action::BorderFixed(7))));
-            assert!(matches!(digit_action(Some(8), false, true), Some(Action::BorderDominant)));
-            // Alt takes precedence when both are held.
-            assert!(matches!(digit_action(Some(3), true, true), Some(Action::BorderFixed(3))));
-        }
-
-        // Exhaustive: for every digit and every Shift/Alt combination, the action
-        // must stay inside the category that modifier selects - it must never
-        // "leak" across (the Shift+7 -> palette bug was exactly such a leak). This
-        // proves there are no hidden cross-combination overlaps.
-        #[test]
-        fn no_cross_category_leaks() {
-            for d in 0u8..=9 {
-                // plain digit: palette or nothing - never zoom/border
-                assert!(
-                    matches!(digit_action(Some(d), false, false), None | Some(Action::Palette(_))),
-                    "plain {d} leaked"
-                );
-                // Shift+digit: zoom or nothing - never palette/border
-                assert!(
-                    matches!(digit_action(Some(d), true, false), None | Some(Action::Zoom(_))),
-                    "shift {d} leaked"
-                );
-                // Alt+digit: border or nothing - never palette/zoom
-                assert!(
-                    matches!(
-                        digit_action(Some(d), false, true),
-                        None | Some(Action::BorderFixed(_)) | Some(Action::BorderDominant)
-                    ),
-                    "alt {d} leaked"
-                );
-                // Alt+Shift+digit: Alt wins (border) - never zoom/palette
-                assert!(
-                    matches!(
-                        digit_action(Some(d), true, true),
-                        None | Some(Action::BorderFixed(_)) | Some(Action::BorderDominant)
-                    ),
-                    "alt+shift {d} leaked"
-                );
-                // Palette/border indices never go out of range.
-                if let Some(Action::Palette(p)) = digit_action(Some(d), false, false) {
-                    assert!(p < 7, "palette index {p} out of range");
-                }
-                if let Some(Action::BorderFixed(c)) = digit_action(Some(d), false, true) {
-                    assert!(c <= 7, "border colour {c} out of range");
-                }
-            }
-        }
-    }
+    mod tests;
 }

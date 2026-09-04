@@ -237,3 +237,10 @@ fn read_ini_key(path: &Path, key: &str) -> Option<String> {
     }
     None
 }
+
+// The tests live in src/tests.rs rather than here. They are as long as the
+// program, and keeping them in a file of their own means the coverage report
+// can leave them out of its own denominator - a suite that counts itself
+// flatters the number it prints.
+#[cfg(test)]
+mod tests;

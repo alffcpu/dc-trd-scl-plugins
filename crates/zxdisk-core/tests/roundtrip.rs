@@ -246,3 +246,73 @@ fn image_wrapper_trd_and_scl() {
         assert_eq!(&e[0].data[..400], &[7u8; 400][..]);
     }
 }
+
+// ---- what the user is told when something is wrong -------------------------
+//
+// These strings reach a Double Commander dialog and the CLI's stderr, so they
+// are as much a part of the interface as the listing is. Pinning them is not
+// pedantry: an error that says "broken image:" and then nothing, or one that
+// names an internal enum variant, is the difference between a user who knows
+// what to do and one who files a bug.
+
+#[test]
+fn every_error_says_something_a_person_can_act_on() {
+    use zxdisk_core::Error;
+
+    let all = [
+        Error::UnknownFormat,
+        Error::BadArchive("catalog runs past the end".into()),
+        Error::TooManyFiles,
+        Error::DiskFull,
+        Error::FileTooBig,
+        Error::NotFound,
+    ];
+
+    for e in &all {
+        let text = e.to_string();
+        assert!(!text.is_empty(), "{e:?} has no message");
+        // Lower case and no full stop: these are appended to sentences the
+        // callers build ("cannot read <path>: <this>").
+        assert!(
+            !text.ends_with('.'),
+            "{e:?} ends in a full stop: {text}"
+        );
+        assert!(
+            text.chars().next().is_some_and(|c| !c.is_uppercase()),
+            "{e:?} starts with a capital: {text}"
+        );
+        // The variant name must not leak into the message.
+        assert!(!text.contains("Error::"), "{e:?} leaks its type: {text}");
+    }
+
+    // BadArchive carries the detail it was given, or the message says nothing
+    // about what is actually broken.
+    assert!(Error::BadArchive("catalog runs past the end".into())
+        .to_string()
+        .contains("catalog runs past the end"));
+
+    // The messages are distinct: two failures that read alike are two bug
+    // reports that cannot be told apart.
+    let mut seen: Vec<String> = all.iter().map(|e| e.to_string()).collect();
+    seen.sort();
+    let before = seen.len();
+    seen.dedup();
+    assert_eq!(seen.len(), before, "two errors share a message");
+}
+
+#[test]
+fn an_error_is_an_error() {
+    use zxdisk_core::Error;
+    // It implements std::error::Error, which is what lets a caller put it in a
+    // Box<dyn Error> or behind `?` in a main() that returns one.
+    fn takes_std_error(_: &dyn std::error::Error) {}
+    takes_std_error(&Error::DiskFull);
+
+    // And the derived comparison works, which the library's own tests rely on.
+    assert_eq!(Error::NotFound, Error::NotFound);
+    assert_ne!(Error::NotFound, Error::DiskFull);
+    assert_ne!(
+        Error::BadArchive("a".into()),
+        Error::BadArchive("b".into())
+    );
+}
