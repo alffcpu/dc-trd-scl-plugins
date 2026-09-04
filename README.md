@@ -183,14 +183,14 @@ and the on-disk format reference are covered in
 ## Tests
 
 ```sh
-cargo test --workspace          # 65 tests
+cargo test --workspace
 ./scripts/coverage.sh           # how much of the code they reach, per file
 ```
 
 The tests are where the formats are: `zxdisk-core` reads and writes TR-DOS
 catalogues, SCL archives, Hobeta headers and ZX screens, and a byte wrong in any
 of them is a corrupted disk image rather than a visible error. That crate is at
-87% to 100% of lines across its files, including a round trip - build an image,
+86% to 100% of lines across its files, including a round trip - build an image,
 add files, save, reload, delete, recover - that checks the free-sector count
 against what the entries actually took.
 

@@ -270,18 +270,38 @@ console window) before refreshing the panel.
 ## Testing
 
 ```sh
-cargo test
+cargo test --workspace
+./scripts/coverage.sh          # per file, weakest first, fails below a floor
 ```
 
-`tests/roundtrip.rs` covers the format library (add/reload/delete/recover,
-truncated images, SCL checksum, detection). `tests/ffi.rs` drives the actual
-exported WCX functions (open, list, extract, pack, delete, detect) exactly as
-Double Commander does. `zxdisk-wlx` has unit tests for the shared key/click
-mapping (`viewer.rs`).
+- `zxdisk-core/tests/roundtrip.rs` - the format library: add, reload, delete and
+  recover, truncated images, the SCL checksum, format detection, and the text of
+  every error the user can be shown.
+- `zxdisk-core/src/screen/tests.rs` - the screen decoder and renderer.
+- `zxdisk-wcx/tests/ffi.rs` - the exported WCX functions driven the way Double
+  Commander drives them: open, list, extract, pack, delete, detect. Including
+  the one data-loss path this plugin has had, where an image that cannot be read
+  must be an error rather than a reason to write a blank one over it.
+- `zxdisk-wcx/src/tests.rs` - the helpers behind those exports.
+- `zxdisk-wlx/src/viewer/model/tests.rs` - the key and click mapping, the shared
+  settings file and what writing to it must not disturb, the panic guard, and
+  the view model.
+- `zxdisk-cli/src/tests.rs` - every command, the `image.trd/ENTRY` path split,
+  and the shared `zxdisk.conf` reader.
 
-`cargo clippy --workspace --all-targets --release -- -D warnings` should stay
-clean too; CI (if you wire one up) should run both plus a full
-`./scripts/build.sh` for every push.
+Test code lives in files of its own rather than in `#[cfg(test)]` modules inside
+the sources, so `scripts/coverage.sh` can leave it out of its own denominator.
+Test code is covered by definition; counted, it raises the number without
+covering anything.
+
+`cargo clippy --workspace --all-targets --release -- -D warnings` and
+`cargo fmt --all -- --check` should both stay clean.
+
+CI runs `cargo test --workspace`, clippy with `-D warnings`, and a full
+`./scripts/build.sh` on every push, against a pinned Rust image so that a new
+stable's new lints cannot start failing the build on their own. Its
+configuration is tied to the hosting of the working repository and is not part
+of this copy.
 
 ## Possible future work
 

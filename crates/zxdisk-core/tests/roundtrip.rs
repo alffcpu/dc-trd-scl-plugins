@@ -181,8 +181,13 @@ fn hobeta_wrap_parse_is_lossless() {
 fn rename_trd_and_scl() {
     // TRD: rename keeps data, changes name (and type when the extension changes).
     let mut trd = TrdImage::blank(DiskType::Ds80, "X");
-    trd.add_file(&TrFile::new(name8("OLDNAME"), b'C', 0x8000, vec![0x11u8; 300]))
-        .unwrap();
+    trd.add_file(&TrFile::new(
+        name8("OLDNAME"),
+        b'C',
+        0x8000,
+        vec![0x11u8; 300],
+    ))
+    .unwrap();
     trd.add_file(&TrFile::new(name8("KEEP"), b'B', 0, vec![0x22u8; 50]))
         .unwrap();
     assert!(trd.rename("OLDNAME.C", "NEWNAME.C"));
@@ -191,7 +196,7 @@ fn rename_trd_and_scl() {
     assert_eq!(&e[0].data[..300], &vec![0x11u8; 300][..]); // data untouched
     assert_eq!(e[0].start, 0x8000); // start untouched
     assert_eq!(e[1].display_name(), "KEEP.B"); // others untouched
-    // Renaming with a new type letter changes the TR-DOS type.
+                                               // Renaming with a new type letter changes the TR-DOS type.
     assert!(trd.rename("KEEP.B", "KEEP.C"));
     assert_eq!(trd.entries()[1].file_type, b'C');
     // Unknown target does nothing.
@@ -219,7 +224,12 @@ fn blank_geometry_sizes() {
         _ => panic!("expected trd"),
     }
     // Explicit geometry is honoured.
-    for dt in [DiskType::Ds80, DiskType::Ds40, DiskType::Ss80, DiskType::Ss40] {
+    for dt in [
+        DiskType::Ds80,
+        DiskType::Ds40,
+        DiskType::Ss80,
+        DiskType::Ss40,
+    ] {
         match Image::blank_for_ext_with("trd", dt) {
             Image::Trd(t) => assert_eq!(t.to_bytes().len(), dt.size()),
             _ => panic!("expected trd"),
@@ -273,10 +283,7 @@ fn every_error_says_something_a_person_can_act_on() {
         assert!(!text.is_empty(), "{e:?} has no message");
         // Lower case and no full stop: these are appended to sentences the
         // callers build ("cannot read <path>: <this>").
-        assert!(
-            !text.ends_with('.'),
-            "{e:?} ends in a full stop: {text}"
-        );
+        assert!(!text.ends_with('.'), "{e:?} ends in a full stop: {text}");
         assert!(
             text.chars().next().is_some_and(|c| !c.is_uppercase()),
             "{e:?} starts with a capital: {text}"
@@ -311,8 +318,5 @@ fn an_error_is_an_error() {
     // And the derived comparison works, which the library's own tests rely on.
     assert_eq!(Error::NotFound, Error::NotFound);
     assert_ne!(Error::NotFound, Error::DiskFull);
-    assert_ne!(
-        Error::BadArchive("a".into()),
-        Error::BadArchive("b".into())
-    );
+    assert_ne!(Error::BadArchive("a".into()), Error::BadArchive("b".into()));
 }

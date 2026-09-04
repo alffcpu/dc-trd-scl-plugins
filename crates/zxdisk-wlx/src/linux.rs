@@ -35,7 +35,9 @@ use std::os::unix::ffi::OsStrExt;
 use std::path::Path;
 use std::sync::{Mutex, OnceLock};
 
-use crate::viewer::model::{apply_action, build_state, digit_action, guard, Action, State, FLASH_MS};
+use crate::viewer::model::{
+    apply_action, build_state, digit_action, guard, Action, State, FLASH_MS,
+};
 
 /// On Linux/Qt the WLX handle is an opaque `QWidget*`.
 type Hwnd = *mut c_void;
@@ -260,7 +262,11 @@ unsafe fn key_action(api: &QtApi, event: *mut c_void) -> Option<Action> {
 /// consumes the event; `false` lets Qt deliver it normally (an unconsumed key
 /// then propagates to DC's Lister form, like the other shells forward keys).
 /// Called directly from C++, so the body is panic-guarded.
-unsafe extern "C" fn event_filter(data: *mut c_void, _sender: *mut c_void, event: *mut c_void) -> bool {
+unsafe extern "C" fn event_filter(
+    data: *mut c_void,
+    _sender: *mut c_void,
+    event: *mut c_void,
+) -> bool {
     guard(false, || {
         let api = match qt() {
             Some(a) => a,
@@ -379,9 +385,20 @@ unsafe fn load(parent: Hwnd, file: *const c_char) -> Hwnd {
     (api.QWidget_rect)(parent, &mut rc);
     (api.QWidget_resize)(widget, (rc[2] - rc[0]).max(1), (rc[3] - rc[1]).max(1));
 
-    let ctx = Box::into_raw(Box::new(Ctx { state, widget, hook: core::ptr::null_mut(), timer_id: 0 }));
+    let ctx = Box::into_raw(Box::new(Ctx {
+        state,
+        widget,
+        hook: core::ptr::null_mut(),
+        timer_id: 0,
+    }));
     let hook = (api.QObject_hook_Create)(widget);
-    (api.QObject_hook_hook_events)(hook, QHook { func: event_filter as *mut c_void, data: ctx as *mut c_void });
+    (api.QObject_hook_hook_events)(
+        hook,
+        QHook {
+            func: event_filter as *mut c_void,
+            data: ctx as *mut c_void,
+        },
+    );
     (*ctx).hook = hook;
     if has_flash {
         (*ctx).timer_id = (api.QObject_startTimer)(widget, FLASH_MS as c_int, QT_COARSE_TIMER);

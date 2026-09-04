@@ -70,12 +70,26 @@ mod win_cp {
             return String::new();
         }
         unsafe {
-            let n = MultiByteToWideChar(CP_ACP, 0, bytes.as_ptr(), bytes.len() as i32, core::ptr::null_mut(), 0);
+            let n = MultiByteToWideChar(
+                CP_ACP,
+                0,
+                bytes.as_ptr(),
+                bytes.len() as i32,
+                core::ptr::null_mut(),
+                0,
+            );
             if n <= 0 {
                 return String::from_utf8_lossy(bytes).into_owned();
             }
             let mut wide = vec![0u16; n as usize];
-            MultiByteToWideChar(CP_ACP, 0, bytes.as_ptr(), bytes.len() as i32, wide.as_mut_ptr(), n);
+            MultiByteToWideChar(
+                CP_ACP,
+                0,
+                bytes.as_ptr(),
+                bytes.len() as i32,
+                wide.as_mut_ptr(),
+                n,
+            );
             String::from_utf16_lossy(&wide)
         }
     }
@@ -89,16 +103,28 @@ mod win_cp {
         let wide: Vec<u16> = s.encode_utf16().collect();
         unsafe {
             let n = WideCharToMultiByte(
-                CP_ACP, 0, wide.as_ptr(), wide.len() as i32,
-                core::ptr::null_mut(), 0, core::ptr::null(), core::ptr::null_mut(),
+                CP_ACP,
+                0,
+                wide.as_ptr(),
+                wide.len() as i32,
+                core::ptr::null_mut(),
+                0,
+                core::ptr::null(),
+                core::ptr::null_mut(),
             );
             if n <= 0 {
                 return s.as_bytes().to_vec();
             }
             let mut out = vec![0u8; n as usize];
             WideCharToMultiByte(
-                CP_ACP, 0, wide.as_ptr(), wide.len() as i32,
-                out.as_mut_ptr(), n, core::ptr::null(), core::ptr::null_mut(),
+                CP_ACP,
+                0,
+                wide.as_ptr(),
+                wide.len() as i32,
+                out.as_mut_ptr(),
+                n,
+                core::ptr::null(),
+                core::ptr::null_mut(),
             );
             out
         }
@@ -150,8 +176,11 @@ fn extract_hobeta() -> bool {
 fn apply_ext_mode() {
     // Accept the generic `ZXDISK_EXT_MODE` too (the name the CLI uses), so the
     // plugin listing and the CLI-driven rename agree on how names are formed.
-    let v = config_value("ext_mode", "ZXDISK_WCX_EXT_MODE")
-        .or_else(|| std::env::var("ZXDISK_EXT_MODE").ok().filter(|s| !s.is_empty()));
+    let v = config_value("ext_mode", "ZXDISK_WCX_EXT_MODE").or_else(|| {
+        std::env::var("ZXDISK_EXT_MODE")
+            .ok()
+            .filter(|s| !s.is_empty())
+    });
     if let Some(v) = v {
         if let Some(m) = zxdisk_core::ExtMode::parse(&v) {
             zxdisk_core::set_default_ext_mode(m);
@@ -179,7 +208,10 @@ fn parse_geometry(v: &str) -> Option<DiskType> {
 }
 
 fn truthy(v: &str) -> bool {
-    matches!(v.trim().to_ascii_lowercase().as_str(), "1" | "true" | "yes" | "on")
+    matches!(
+        v.trim().to_ascii_lowercase().as_str(),
+        "1" | "true" | "yes" | "on"
+    )
 }
 
 /// Read an ini-style `key = value` from a file, ignoring comments and sections.
@@ -207,7 +239,9 @@ fn fallback_config_paths() -> Vec<String> {
         out.push(format!("{home}/.config/zxdisk.conf")); // shared by both plugins
         out.push(format!("{home}/.config/zxdisk-wcx.conf"));
         out.push(format!("{home}/.config/doublecmd/zxdisk-wcx.conf"));
-        out.push(format!("{home}/Library/Application Support/doublecmd/zxdisk-wcx.conf"));
+        out.push(format!(
+            "{home}/Library/Application Support/doublecmd/zxdisk-wcx.conf"
+        ));
     }
     // Windows: the plugin runs inside doublecmd.exe, where HOME is usually unset,
     // so also look under the user profile and roaming AppData (where
@@ -274,7 +308,11 @@ fn debug_log(msg: &str) {
         },
     };
     use std::io::Write;
-    if let Ok(mut f) = std::fs::OpenOptions::new().create(true).append(true).open(&path) {
+    if let Ok(mut f) = std::fs::OpenOptions::new()
+        .create(true)
+        .append(true)
+        .open(&path)
+    {
         let _ = writeln!(f, "{msg}");
     }
 }
@@ -678,7 +716,8 @@ pub unsafe extern "system" fn CloseArchive(h: HANDLE) -> c_int {
 
 #[no_mangle]
 pub extern "system" fn GetPackerCaps() -> c_int {
-    let caps = PK_CAPS_NEW | PK_CAPS_MODIFY | PK_CAPS_MULTIPLE | PK_CAPS_DELETE | PK_CAPS_BY_CONTENT;
+    let caps =
+        PK_CAPS_NEW | PK_CAPS_MODIFY | PK_CAPS_MULTIPLE | PK_CAPS_DELETE | PK_CAPS_BY_CONTENT;
     debug_log(&format!("GetPackerCaps -> {caps}"));
     caps
 }
@@ -706,7 +745,10 @@ pub unsafe extern "system" fn PackFiles(
 }
 
 #[no_mangle]
-pub unsafe extern "system" fn DeleteFiles(packed_file: *mut c_char, delete_list: *mut c_char) -> c_int {
+pub unsafe extern "system" fn DeleteFiles(
+    packed_file: *mut c_char,
+    delete_list: *mut c_char,
+) -> c_int {
     guard!(E_BAD_ARCHIVE, {
         let packed = cstr_to_string(packed_file);
         let list = parse_double_null(delete_list);
@@ -778,51 +820,4 @@ fn map_core_err(e: zxdisk_core::Error) -> c_int {
 }
 
 #[cfg(test)]
-mod tests {
-    use super::*;
-
-    fn name8(s: &str) -> [u8; 8] {
-        let mut n = [b' '; 8];
-        for (i, b) in s.bytes().take(8).enumerate() {
-            n[i] = b;
-        }
-        n
-    }
-
-    #[test]
-    fn names_and_encoding_follow_mode() {
-        let e = TrFile::new(name8("GAME"), b'C', 0x8000, vec![1, 2, 3]);
-        // Default mode: plain name, raw bytes (no hobeta header).
-        assert_eq!(entry_name(&e, false), "GAME.C");
-        assert_eq!(encode_entry(&e, false), vec![1, 2, 3]);
-        assert_eq!(extracted_len(&e, false), 3);
-        // Hobeta mode: $-name, header + padded data, metadata round-trips.
-        assert_eq!(entry_name(&e, true), "GAME.$C");
-        let hob = encode_entry(&e, true);
-        assert_eq!(hob.len(), zxdisk_core::hobeta::HEADER_LEN + 256);
-        assert_eq!(extracted_len(&e, true), zxdisk_core::hobeta::HEADER_LEN + 256);
-        let back = zxdisk_core::hobeta::parse(&hob).unwrap();
-        assert_eq!(back.start, 0x8000);
-        assert_eq!(back.length, 3);
-    }
-
-    #[test]
-    fn truthy_parses() {
-        for v in ["1", "true", "YES", "On", " on "] {
-            assert!(truthy(v), "{v:?} should be true");
-        }
-        for v in ["0", "false", "no", "", "maybe"] {
-            assert!(!truthy(v), "{v:?} should be false");
-        }
-    }
-
-    #[test]
-    fn geometry_parses() {
-        assert_eq!(parse_geometry("640k"), Some(DiskType::Ds80));
-        assert_eq!(parse_geometry(" 80X2 "), Some(DiskType::Ds80));
-        assert_eq!(parse_geometry("320k-ds"), Some(DiskType::Ds40));
-        assert_eq!(parse_geometry("320k-ss"), Some(DiskType::Ss80));
-        assert_eq!(parse_geometry("160k"), Some(DiskType::Ss40));
-        assert_eq!(parse_geometry("nonsense"), None);
-    }
-}
+mod tests;

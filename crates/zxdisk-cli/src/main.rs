@@ -122,7 +122,10 @@ fn cmd_extract(args: &[String]) -> Result<String, String> {
         .find(|e| e.display_name() == entry)
         .ok_or_else(|| format!("extract: '{entry}' not found"))?;
     std::fs::write(out, &e.data).map_err(|e| format!("write failed: {e}"))?;
-    Ok(format!("extracted '{entry}' -> {out} ({} bytes)", e.data.len()))
+    Ok(format!(
+        "extracted '{entry}' -> {out} ({} bytes)",
+        e.data.len()
+    ))
 }
 
 fn cmd_add(args: &[String]) -> Result<String, String> {
@@ -144,7 +147,8 @@ fn cmd_add(args: &[String]) -> Result<String, String> {
         None => TrFile::from_host_filename(&basename, data),
     };
     let mut img = load_image(Path::new(image))?;
-    img.add_file(&file).map_err(|e| format!("add failed: {e}"))?;
+    img.add_file(&file)
+        .map_err(|e| format!("add failed: {e}"))?;
     save_image(Path::new(image), &img)?;
     Ok(format!("added '{}'", file.display_name()))
 }
@@ -185,7 +189,8 @@ fn load_image(path: &Path) -> Result<Image, String> {
 }
 
 fn save_image(path: &Path, img: &Image) -> Result<(), String> {
-    std::fs::write(path, img.to_bytes()).map_err(|e| format!("cannot write {}: {e}", path.display()))
+    std::fs::write(path, img.to_bytes())
+        .map_err(|e| format!("cannot write {}: {e}", path.display()))
 }
 
 /// Match the extension mode used by the plugins so entry names line up.
@@ -197,7 +202,11 @@ fn apply_ext_mode() {
         .ok()
         .or_else(|| std::env::var("ZXDISK_WCX_EXT_MODE").ok())
         .filter(|s| !s.is_empty())
-        .or_else(|| shared_conf_paths().iter().find_map(|p| read_ini_key(p, "ext_mode")));
+        .or_else(|| {
+            shared_conf_paths()
+                .iter()
+                .find_map(|p| read_ini_key(p, "ext_mode"))
+        });
     if let Some(v) = val {
         if let Some(m) = zxdisk_core::ExtMode::parse(&v) {
             zxdisk_core::set_default_ext_mode(m);

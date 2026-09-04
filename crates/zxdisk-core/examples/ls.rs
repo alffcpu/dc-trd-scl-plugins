@@ -27,13 +27,11 @@ fn main() {
     let entries = img.entries();
     let live = entries.iter().filter(|e| !e.deleted).count();
     let deleted = entries.len() - live;
+    println!("{:?}  ({} live, {} deleted)", img.format(), live, deleted);
     println!(
-        "{:?}  ({} live, {} deleted)",
-        img.format(),
-        live,
-        deleted
+        "{:<11} {:>4} {:>7} {:>8} {:>8}",
+        "name", "type", "start", "bytes", "status"
     );
-    println!("{:<11} {:>4} {:>7} {:>8} {:>8}", "name", "type", "start", "bytes", "status");
     for e in &entries {
         println!(
             "{:<11} {:>4} {:>7} {:>8} {:>8}",

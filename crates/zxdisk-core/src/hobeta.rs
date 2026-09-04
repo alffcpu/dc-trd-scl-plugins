@@ -77,5 +77,13 @@ pub fn parse(bytes: &[u8]) -> Option<TrFile> {
     let mut data = vec![0u8; dlen];
     let avail = (bytes.len() - HEADER_LEN).min(dlen);
     data[..avail].copy_from_slice(&bytes[HEADER_LEN..HEADER_LEN + avail]);
-    Some(TrFile { name, file_type, start, length, sectors, deleted: false, data })
+    Some(TrFile {
+        name,
+        file_type,
+        start,
+        length,
+        sectors,
+        deleted: false,
+        data,
+    })
 }

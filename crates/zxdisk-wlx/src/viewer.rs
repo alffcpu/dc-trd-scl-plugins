@@ -132,7 +132,10 @@ pub mod model {
 
     /// Saved zoom (1..6), if valid.
     fn read_scale() -> Option<u32> {
-        read_setting("screen_scale")?.parse::<u32>().ok().filter(|n| (1..=6).contains(n))
+        read_setting("screen_scale")?
+            .parse::<u32>()
+            .ok()
+            .filter(|n| (1..=6).contains(n))
     }
     fn write_scale(n: u32) {
         write_setting("screen_scale", &n.to_string());
@@ -149,7 +152,10 @@ pub mod model {
 
     /// Saved border mode. Missing/`auto`/invalid -> Dominant (the default).
     fn read_border() -> BorderMode {
-        match read_setting("screen_border_color").as_deref().map(str::trim) {
+        match read_setting("screen_border_color")
+            .as_deref()
+            .map(str::trim)
+        {
             Some(v) => match v.parse::<u8>() {
                 Ok(n) if n <= 7 => BorderMode::Fixed(n),
                 _ => BorderMode::Dominant,
@@ -251,7 +257,12 @@ pub mod model {
                 bright: true,
                 mode: 2,
                 border_mode: read_border(),
-                render: Rgba { width: 0, height: 0, pixels: Vec::new(), border: [0, 0, 0] },
+                render: Rgba {
+                    width: 0,
+                    height: 0,
+                    pixels: Vec::new(),
+                    border: [0, 0, 0],
+                },
                 #[cfg(windows)]
                 bgra: Vec::new(),
             };
@@ -362,7 +373,9 @@ pub mod model {
         } else {
             // `then` (lazy), NOT `then_some`: the plain `0` key reaches here (it is
             // simply not a palette), and `d - 1` would underflow u8 for d == 0.
-            (1..=7).contains(&d).then(|| Action::Palette((d - 1) as usize))
+            (1..=7)
+                .contains(&d)
+                .then(|| Action::Palette((d - 1) as usize))
         }
     }
 
@@ -376,7 +389,7 @@ pub mod model {
         Some(Box::new(State::new(scr, is_mono)))
     }
 
-    // The tests are in viewer_tests.rs. They are as long as the module and are
+    // The tests are in viewer/model/tests.rs. They are as long as the module and are
     // test code, which is covered by definition: counted here they would raise
     // the coverage figure without covering anything. A file of their own is one
     // scripts/coverage.sh can leave out of its denominator.

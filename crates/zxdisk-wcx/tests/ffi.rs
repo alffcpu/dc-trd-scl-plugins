@@ -25,7 +25,11 @@ fn name8(s: &str) -> [u8; 8] {
 }
 
 fn carray_str(buf: &[c_char]) -> String {
-    let bytes: Vec<u8> = buf.iter().take_while(|&&c| c != 0).map(|&c| c as u8).collect();
+    let bytes: Vec<u8> = buf
+        .iter()
+        .take_while(|&&c| c != 0)
+        .map(|&c| c as u8)
+        .collect();
     String::from_utf8_lossy(&bytes).into_owned()
 }
 
@@ -62,7 +66,10 @@ unsafe fn list_names(path: &std::path::Path) -> Vec<String> {
         }
         assert_eq!(r, E_SUCCESS);
         names.push(carray_str(&hdr.FileName));
-        assert_eq!(ProcessFile(h, PK_SKIP, std::ptr::null_mut(), std::ptr::null_mut()), E_SUCCESS);
+        assert_eq!(
+            ProcessFile(h, PK_SKIP, std::ptr::null_mut(), std::ptr::null_mut()),
+            E_SUCCESS
+        );
     }
     CloseArchive(h);
     names
@@ -154,7 +161,10 @@ fn pack_adds_a_file() {
         assert_eq!(r, E_SUCCESS);
 
         let names = list_names(&path);
-        assert!(names.contains(&"ADDED.C".to_string()), "after pack: {names:?}");
+        assert!(
+            names.contains(&"ADDED.C".to_string()),
+            "after pack: {names:?}"
+        );
 
         std::fs::remove_file(&path).ok();
         std::fs::remove_dir_all(&srcdir).ok();
@@ -174,9 +184,14 @@ fn delete_makes_file_recoverable() {
 
         let names = list_names(&path);
         // GAME is no longer a live entry, but survives under deleted\.
-        assert!(!names.contains(&"GAME.C".to_string()), "still live: {names:?}");
         assert!(
-            names.iter().any(|n| n.starts_with("deleted\\") && n.contains("AME")),
+            !names.contains(&"GAME.C".to_string()),
+            "still live: {names:?}"
+        );
+        assert!(
+            names
+                .iter()
+                .any(|n| n.starts_with("deleted\\") && n.contains("AME")),
             "GAME not recoverable: {names:?}"
         );
         std::fs::remove_file(&path).ok();
@@ -241,5 +256,109 @@ fn content_detection() {
 
         std::fs::remove_file(&path).ok();
         std::fs::remove_file(&junk).ok();
+    }
+}
+
+/// An unreadable existing image must not be replaced by a blank one.
+///
+/// This is the July review's H2, the one data-loss path in the plugin: `do_pack`
+/// used to treat *any* read failure as "no such image, make a new one", so a
+/// sharing violation or a permission problem turned the user's disk image into
+/// an empty one on the next copy-in. The fix distinguishes NotFound from
+/// everything else; nothing checked that it stayed fixed.
+///
+/// Unix only: it needs a file the process cannot read, and dropping the mode
+/// bits is the portable way to get one. Windows has the same code path and
+/// reaches it through a sharing violation instead, which a test cannot arrange
+/// as simply.
+#[test]
+#[cfg(unix)]
+fn packing_into_an_unreadable_image_refuses_rather_than_blanking_it() {
+    use std::os::unix::fs::PermissionsExt;
+
+    unsafe {
+        let (path, _) = make_test_trd();
+        let before = std::fs::read(&path).unwrap();
+        assert!(before.iter().any(|&b| b != 0), "the fixture is not blank");
+
+        let srcdir = std::env::temp_dir().join(format!(
+            "zxwcx-unreadable-{}-{}",
+            std::process::id(),
+            COUNTER.fetch_add(1, Ordering::SeqCst)
+        ));
+        std::fs::create_dir_all(&srcdir).unwrap();
+        std::fs::write(srcdir.join("ADDED.C"), vec![0x77u8; 260]).unwrap();
+
+        // Readable by nobody, including us.
+        let mode = std::fs::metadata(&path).unwrap().permissions().mode();
+        std::fs::set_permissions(&path, std::fs::Permissions::from_mode(0o000)).unwrap();
+
+        let cpacked = CString::new(path.to_str().unwrap()).unwrap();
+        let csrc = CString::new(srcdir.to_str().unwrap()).unwrap();
+        let add_list = b"ADDED.C\0\0";
+        let r = PackFiles(
+            cpacked.as_ptr() as *mut c_char,
+            std::ptr::null_mut(),
+            csrc.as_ptr() as *mut c_char,
+            add_list.as_ptr() as *mut c_char,
+            0,
+        );
+
+        // Put the mode back before asserting, so a failure does not leave an
+        // unreadable file behind for the next run.
+        std::fs::set_permissions(&path, std::fs::Permissions::from_mode(mode)).unwrap();
+
+        assert_eq!(
+            r, E_EOPEN,
+            "an unreadable image must be an error, not a new disk"
+        );
+        assert_eq!(
+            std::fs::read(&path).unwrap(),
+            before,
+            "the image on disk was modified"
+        );
+
+        std::fs::remove_file(&path).ok();
+        std::fs::remove_dir_all(&srcdir).ok();
+    }
+}
+
+/// A path that is not there at all IS the "make a new image" case, which is the
+/// other half of the same decision: refusing everything would break copy-in to
+/// a new disk, which is a feature people use.
+#[test]
+fn packing_into_a_path_that_does_not_exist_creates_the_image() {
+    unsafe {
+        let fresh = std::env::temp_dir().join(format!(
+            "zxwcx-fresh-{}-{}.trd",
+            std::process::id(),
+            COUNTER.fetch_add(1, Ordering::SeqCst)
+        ));
+        std::fs::remove_file(&fresh).ok();
+
+        let srcdir = std::env::temp_dir().join(format!(
+            "zxwcx-freshsrc-{}-{}",
+            std::process::id(),
+            COUNTER.fetch_add(1, Ordering::SeqCst)
+        ));
+        std::fs::create_dir_all(&srcdir).unwrap();
+        std::fs::write(srcdir.join("NEW.C"), vec![0x11u8; 300]).unwrap();
+
+        let cpacked = CString::new(fresh.to_str().unwrap()).unwrap();
+        let csrc = CString::new(srcdir.to_str().unwrap()).unwrap();
+        let add_list = b"NEW.C\0\0";
+        let r = PackFiles(
+            cpacked.as_ptr() as *mut c_char,
+            std::ptr::null_mut(),
+            csrc.as_ptr() as *mut c_char,
+            add_list.as_ptr() as *mut c_char,
+            0,
+        );
+        assert_eq!(r, E_SUCCESS);
+        assert!(fresh.is_file(), "no image was created");
+        assert!(list_names(&fresh).contains(&"NEW.C".to_string()));
+
+        std::fs::remove_file(&fresh).ok();
+        std::fs::remove_dir_all(&srcdir).ok();
     }
 }

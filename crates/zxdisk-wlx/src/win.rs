@@ -31,7 +31,9 @@ use windows_sys::Win32::UI::WindowsAndMessaging::{
     WNDCLASSW, WS_CHILD, WS_CLIPSIBLINGS, WS_VISIBLE,
 };
 
-use crate::viewer::model::{apply_action, build_state, digit_action, guard, Action, State, FLASH_MS};
+use crate::viewer::model::{
+    apply_action, build_state, digit_action, guard, Action, State, FLASH_MS,
+};
 
 const TIMER_ID: usize = 1;
 const VK_SPACE: u32 = 0x20;
@@ -125,7 +127,12 @@ unsafe fn register_class() {
 unsafe fn create_window(parent: HWND) -> HWND {
     register_class();
     let cn = class_name();
-    let mut rc = RECT { left: 0, top: 0, right: 0, bottom: 0 };
+    let mut rc = RECT {
+        left: 0,
+        top: 0,
+        right: 0,
+        bottom: 0,
+    };
     GetClientRect(parent, &mut rc);
     let w = (rc.right - rc.left).max(1);
     let h = (rc.bottom - rc.top).max(1);
@@ -297,8 +304,19 @@ unsafe fn paint(hwnd: HWND) {
                 let oy = (ch - ih) / 2;
                 let bmi = bitmap_info(iw, ih);
                 StretchDIBits(
-                    mem, ox, oy, iw, ih, 0, 0, iw, ih,
-                    st.bgra.as_ptr() as *const c_void, &bmi, DIB_RGB_COLORS, SRCCOPY,
+                    mem,
+                    ox,
+                    oy,
+                    iw,
+                    ih,
+                    0,
+                    0,
+                    iw,
+                    ih,
+                    st.bgra.as_ptr() as *const c_void,
+                    &bmi,
+                    DIB_RGB_COLORS,
+                    SRCCOPY,
                 );
             }
         } else {
@@ -407,11 +425,25 @@ unsafe fn ansi_to_path(p: *const c_char) -> Option<PathBuf> {
     if bytes.is_empty() {
         return None;
     }
-    let n = MultiByteToWideChar(0, 0, bytes.as_ptr(), bytes.len() as i32, core::ptr::null_mut(), 0);
+    let n = MultiByteToWideChar(
+        0,
+        0,
+        bytes.as_ptr(),
+        bytes.len() as i32,
+        core::ptr::null_mut(),
+        0,
+    );
     if n <= 0 {
         return Some(PathBuf::from(String::from_utf8_lossy(bytes).into_owned()));
     }
     let mut wide = vec![0u16; n as usize];
-    MultiByteToWideChar(0, 0, bytes.as_ptr(), bytes.len() as i32, wide.as_mut_ptr(), n);
+    MultiByteToWideChar(
+        0,
+        0,
+        bytes.as_ptr(),
+        bytes.len() as i32,
+        wide.as_mut_ptr(),
+        n,
+    );
     Some(PathBuf::from(std::ffi::OsString::from_wide(&wide)))
 }

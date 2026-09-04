@@ -170,7 +170,15 @@ impl TrdImage {
             let start_track = self.data[o + 15];
             let deleted = b0 == 0x01;
             let data = self.read_sectors(start_track, start_sector, sectors);
-            out.push(TrFile { name, file_type, start, length, sectors, deleted, data });
+            out.push(TrFile {
+                name,
+                file_type,
+                start,
+                length,
+                sectors,
+                deleted,
+                data,
+            });
         }
         out
     }

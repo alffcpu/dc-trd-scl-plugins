@@ -51,7 +51,15 @@ impl SclArchive {
                 data[..avail].copy_from_slice(&bytes[data_off..data_off + avail]);
             }
             data_off += dlen;
-            files.push(TrFile { name, file_type, start, length, sectors, deleted: false, data });
+            files.push(TrFile {
+                name,
+                file_type,
+                start,
+                length,
+                sectors,
+                deleted: false,
+                data,
+            });
         }
         Ok(SclArchive { files })
     }

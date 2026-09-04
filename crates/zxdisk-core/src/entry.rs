@@ -35,7 +35,15 @@ impl TrFile {
     pub fn new(name: [u8; NAME_LEN], file_type: u8, start: u16, data: Vec<u8>) -> TrFile {
         let sectors = data.len().div_ceil(SECTOR_SIZE).min(MAX_SECTORS) as u8;
         let length = data.len().min(u16::MAX as usize) as u16;
-        TrFile { name, file_type, start, length, sectors, deleted: false, data }
+        TrFile {
+            name,
+            file_type,
+            start,
+            length,
+            sectors,
+            deleted: false,
+            data,
+        }
     }
 
     /// The sanitized 8-char name, trailing spaces trimmed. Non-printable bytes

@@ -24,7 +24,9 @@ use objc2_app_kit::{
 };
 use objc2_foundation::{MainThreadMarker, NSPoint, NSRect, NSSize, NSTimer};
 
-use crate::viewer::model::{apply_action, build_state, digit_action, guard, Action, State, FLASH_MS};
+use crate::viewer::model::{
+    apply_action, build_state, digit_action, guard, Action, State, FLASH_MS,
+};
 
 /// On macOS the WLX handle is an opaque `NSView*`.
 type Hwnd = *mut c_void;
@@ -173,8 +175,8 @@ impl ZxView {
         }
         let shift = mods.contains(NSEventModifierFlags::Shift);
         let option = mods.contains(NSEventModifierFlags::Option); // Alt
-        // Main number-row digit for this key code (the row is non-contiguous), or
-        // None. Numpad keys are deliberately excluded, matching the Windows VKs.
+                                                                  // Main number-row digit for this key code (the row is non-contiguous), or
+                                                                  // None. Numpad keys are deliberately excluded, matching the Windows VKs.
         let digit: Option<u8> = match event.keyCode() {
             0x1D => Some(0),
             0x12 => Some(1),
@@ -231,9 +233,11 @@ impl ZxView {
         if iw <= 0.0 || ih <= 0.0 || st.render.pixels.is_empty() {
             return;
         }
-        if let Some(img) =
-            build_image(&st.render.pixels, st.render.width as isize, st.render.height as isize)
-        {
+        if let Some(img) = build_image(
+            &st.render.pixels,
+            st.render.width as isize,
+            st.render.height as isize,
+        ) {
             if let Some(ctx) = NSGraphicsContext::currentContext() {
                 ctx.setImageInterpolation(NSImageInterpolation::None); // crisp pixels
             }

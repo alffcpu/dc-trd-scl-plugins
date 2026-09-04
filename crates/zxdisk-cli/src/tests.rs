@@ -23,10 +23,7 @@ struct Fixture {
 
 impl Fixture {
     fn new(tag: &str) -> Fixture {
-        let dir = std::env::temp_dir().join(format!(
-            "zxdisk-cli-{tag}-{}",
-            std::process::id()
-        ));
+        let dir = std::env::temp_dir().join(format!("zxdisk-cli-{tag}-{}", std::process::id()));
         let _ = fs::remove_dir_all(&dir);
         fs::create_dir_all(&dir).unwrap();
         Fixture { dir }
@@ -180,7 +177,9 @@ fn rename_refuses_what_it_cannot_do() {
     let img = fx.image();
 
     assert!(cmd_rename(&[]).unwrap_err().contains("expected"));
-    assert!(cmd_rename(&args(&["one"])).unwrap_err().contains("expected"));
+    assert!(cmd_rename(&args(&["one"]))
+        .unwrap_err()
+        .contains("expected"));
 
     // A name that is not in the image, and an image path with no entry.
     let e = cmd_rename(&args(&[img.to_str().unwrap(), "NOPE.C", "X.C"])).unwrap_err();
